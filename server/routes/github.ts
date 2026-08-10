@@ -58,7 +58,21 @@ async function collectProjectFiles(rootDir: string) {
 /** Read-only registry pull. */
 function formatGithubError(error: any, repo: string, token: string | null): { status: number; details: string } {
   const status = error.response?.status || 500;
-  const rawMsg = error.response?.data?.message || error.message || "Unknown error";
+  let rawMsg = "Unknown error";
+
+  if (error.response?.data) {
+    if (typeof error.response.data === "string") {
+      rawMsg = error.response.data;
+    } else if (error.response.data.message) {
+      rawMsg = error.response.data.message;
+    }
+  } else if (error.message) {
+    rawMsg = error.message;
+  }
+
+  if (typeof rawMsg === "string" && (rawMsg.includes("Unexpected end of JSON input") || rawMsg.includes("JSON") || rawMsg.includes("Unexpected token"))) {
+    rawMsg = `GitHub API payload could not be parsed. Ensure repository '${repo || "configured"}' exists and contains a valid registry.json.`;
+  }
 
   if (status === 404) {
     return {
@@ -67,15 +81,15 @@ function formatGithubError(error: any, repo: string, token: string | null): { st
     };
   }
 
-  if (status === 403 || status === 401 || rawMsg.includes("Resource not accessible")) {
+  if (status === 403 || status === 401 || (typeof rawMsg === 'string' && rawMsg.includes("Resource not accessible"))) {
     const isRateLimit = error.response?.headers?.["x-ratelimit-remaining"] === "0";
     if (isRateLimit) {
       return { status: 429, details: "GitHub API rate limit exceeded. Please provide a valid GITHUB_TOKEN." };
     }
-    if (rawMsg.includes("Resource not accessible") || status === 403) {
+    if (typeof rawMsg === 'string' && rawMsg.includes("Resource not accessible") || status === 403) {
       return {
         status: 403,
-        details: `GitHub Personal Access Token lacks required write permissions for repository '${repo}'. Please grant 'repo' scope (classic PAT) or 'Contents: Read & Write' permission (fine-grained PAT), or re-authenticate via GitHub OAuth.`,
+        details: `GitHub Personal Access Token lacks required write permissions for repository '${repo}'. Please grant 'repo' scope (classic PAT) or 'Contents: Read & Write' permission (fine-grained PAT).`,
       };
     }
     return {
@@ -353,23 +367,32 @@ const webhookLogs: WebhookLogEntry[] = [
 /** Run complete GitHub integration diagnostics */
 githubRouter.get("/diagnostic", async (req, res) => {
   const token = resolveGithubToken(req);
-  const repo = env.GITHUB_REPO;
+  const queryRepo = req.query.repo as string;
+  const repo = queryRepo || env.GITHUB_REPO;
   const branch = env.GITHUB_BRANCH || "main";
 
-  const results = {
+  const results: any = {
     success: true,
-    envRepo: repo || null,
+    envRepo: env.GITHUB_REPO || null,
     envBranch: branch,
     hasToken: !!token,
     repoValid: false,
     apiReachable: false,
-    message: "",
+    message: "Diagnostics started",
     details: "",
+    checks: {
+      envRepo: env.GITHUB_REPO ? "PRESENT" : "MISSING",
+      hasToken: token ? "PRESENT" : "MISSING",
+      repoFormat: "PENDING",
+      apiStatus: "PENDING"
+    }
   };
 
   if (!repo) {
     results.success = false;
-    results.message = "No GITHUB_REPO environment variable set. Please configure a repository in Owner/Repo format.";
+    results.message = "Configuration incomplete: No GITHUB_REPO found in environment or query.";
+    results.checks.repoFormat = "INVALID (MISSING)";
+    results.checks.apiStatus = "UNREACHABLE";
     return res.json(results);
   }
 
@@ -377,9 +400,12 @@ githubRouter.get("/diagnostic", async (req, res) => {
   const parts = cleanRepo.split("/");
   if (parts.length === 2 && parts[0] && parts[1]) {
     results.repoValid = true;
+    results.checks.repoFormat = "VALID";
   } else {
     results.success = false;
     results.message = `Invalid repository format '${repo}'. Expected 'owner/repo'.`;
+    results.checks.repoFormat = "INVALID";
+    results.checks.apiStatus = "UNREACHABLE";
     return res.json(results);
   }
 
@@ -387,9 +413,11 @@ githubRouter.get("/diagnostic", async (req, res) => {
     const headers = authHeaders(token);
     const response = await githubClient.get(`/repos/${parts[0]}/${parts[1]}`, { headers });
     results.apiReachable = true;
-    results.message = `GitHub API reachable for repository '${response.data.full_name}' (${response.data.private ? 'Private' : 'Public'}). Token status: ${token ? 'Authenticated' : 'Anonymous'}`;
+    results.checks.apiStatus = "REACHABLE";
+    results.message = `GitHub API reachable for repository '${response.data.full_name}' (${response.data.private ? "Private" : "Public"}). Token status: ${token ? "Authenticated" : "Anonymous"}`;
   } catch (error: any) {
     results.success = false;
+    results.checks.apiStatus = "UNREACHABLE";
     const { details } = formatGithubError(error, cleanRepo, token);
     results.message = `GitHub API check failed for '${cleanRepo}': ${details}`;
   }

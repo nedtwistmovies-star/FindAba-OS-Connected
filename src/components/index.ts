@@ -27,6 +27,7 @@ import { BusinessCardSkeleton, FeedSkeleton, HeroSkeleton } from './SkeletonLoad
 import { AuthModal } from './AuthModal';
 import { ContactGateway } from './ContactGateway';
 import SystemStatusIndicator from './SystemStatusIndicator';
+import { HealthCheck } from './HealthCheck';
 import { LanguageSelector } from './LanguageSelector';
 import WelcomeOverlay from './WelcomeOverlay';
 import { WeeklyTradeVolumeChart } from './WeeklyTradeVolumeChart';
@@ -59,6 +60,7 @@ export {
   AuthModal,
   ContactGateway,
   SystemStatusIndicator,
+  HealthCheck,
   LanguageSelector,
   WelcomeOverlay,
   WeeklyTradeVolumeChart,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
   MessageSquare,
   Radio,
@@ -23,23 +23,14 @@ import {
   Zap,
   ShieldCheck,
   FileJson,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import IndustrialButton from "../../../components/IndustrialButton";
 import StatCard from "../../../components/StatCard";
 import { useToast } from "../../../providers/ToastProvider";
-
-export interface WhatsAppWebhookEvent {
-  id: string;
-  timestamp: string;
-  sender: string;
-  senderPhone: string;
-  senderName: string;
-  status: "received" | "processed" | "delivered" | "read" | "sent" | "failed";
-  eventType: "message" | "status_update" | "location" | "image" | "interactive" | "test_simulation";
-  summary: string;
-  payload: any;
-}
+import { useEventSource, WhatsAppWebhookEvent } from "../../../hooks/useEventSource";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   received: { bg: "bg-sky-500/10", text: "text-sky-400", border: "border-sky-500/30" },
@@ -52,9 +43,6 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
 
 export const WhatsAppWebhookDashboard: React.FC = () => {
   const { addToast } = useToast();
-  const [events, setEvents] = useState<WhatsAppWebhookEvent[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [isConnected, setIsConnected] = useState<boolean>(false);
   const [search, setSearch] = useState<string>("");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
@@ -69,67 +57,21 @@ export const WhatsAppWebhookDashboard: React.FC = () => {
   const [simStatus, setSimStatus] = useState<"received" | "processed" | "delivered">("received");
   const [simType, setSimType] = useState<"message" | "status_update" | "test_simulation">("message");
 
-  const fetchEvents = useCallback(async () => {
-    try {
-      const res = await fetch("/api/whatsapp/events?limit=50");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (data.success && Array.isArray(data.events)) {
-        setEvents(data.events);
-      }
-    } catch (err: any) {
-      console.error("[WhatsAppDashboard] Fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Set up real-time SSE stream with fallback polling
-  useEffect(() => {
-    fetchEvents();
-
-    let eventSource: EventSource | null = null;
-    let pollInterval: NodeJS.Timeout | null = null;
-
-    try {
-      eventSource = new EventSource("/api/whatsapp/events/stream");
-
-      eventSource.onopen = () => {
-        setIsConnected(true);
-      };
-
-      eventSource.onmessage = (e) => {
-        try {
-          const newEvent: WhatsAppWebhookEvent = JSON.parse(e.data);
-          if (newEvent && newEvent.id) {
-            setEvents((prev) => {
-              if (prev.some((item) => item.id === newEvent.id)) return prev;
-              const updated = [newEvent, ...prev];
-              return updated.slice(0, 50);
-            });
-          }
-        } catch {
-          // Keepalive or non-json message
-        }
-      };
-
-      eventSource.onerror = () => {
-        setIsConnected(false);
-        // Fallback to polling every 4 seconds if SSE encounters an error
-        if (!pollInterval) {
-          pollInterval = setInterval(fetchEvents, 4000);
-        }
-      };
-    } catch {
-      setIsConnected(false);
-      pollInterval = setInterval(fetchEvents, 4000);
-    }
-
-    return () => {
-      if (eventSource) eventSource.close();
-      if (pollInterval) clearInterval(pollInterval);
-    };
-  }, [fetchEvents]);
+  // Real-time EventSource Stream hook
+  const {
+    events,
+    isConnected,
+    connectionState,
+    lastEventTime,
+    newEventFlash,
+    clearEvents,
+    refreshHistorical,
+  } = useEventSource({
+    url: "/api/whatsapp/events/stream",
+    onEventReceived: (evt) => {
+      addToast(`Real-time event: ${evt.senderName} (${evt.eventType})`, "info");
+    },
+  });
 
   const handleCopyPayload = (id: string, payload: any) => {
     navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
@@ -158,7 +100,6 @@ export const WhatsAppWebhookDashboard: React.FC = () => {
       if (data.success) {
         addToast("Simulated WhatsApp webhook event dispatched!", "success");
         setIsSimulateOpen(false);
-        fetchEvents();
       } else {
         addToast("Simulation failed: " + (data.error || "Unknown error"), "error");
       }
@@ -171,16 +112,8 @@ export const WhatsAppWebhookDashboard: React.FC = () => {
 
   const handleClearEvents = async () => {
     if (!window.confirm("Are you sure you want to clear the incoming WhatsApp webhook buffer?")) return;
-    try {
-      const res = await fetch("/api/whatsapp/events", { method: "DELETE" });
-      const data = await res.json();
-      if (data.success) {
-        setEvents([]);
-        addToast("Webhook events buffer cleared", "info");
-      }
-    } catch (err: any) {
-      addToast("Failed to clear events: " + err.message, "error");
-    }
+    await clearEvents();
+    addToast("Webhook events buffer cleared", "info");
   };
 
   const filteredEvents = useMemo(() => {
@@ -253,8 +186,7 @@ export const WhatsAppWebhookDashboard: React.FC = () => {
             variant="secondary"
             size="md"
             icon={RefreshCcw}
-            loading={loading}
-            onClick={fetchEvents}
+            onClick={refreshHistorical}
           >
             Refresh
           </IndustrialButton>
@@ -330,9 +262,31 @@ export const WhatsAppWebhookDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Real-time SSE Stream Banner / Flash Indicator */}
+      <AnimatePresence>
+        {newEventFlash && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center justify-between gap-4 text-emerald-400"
+          >
+            <div className="flex items-center gap-3">
+              <Zap size={18} className="animate-bounce" />
+              <span className="text-xs font-black uppercase tracking-wider">
+                New incoming WhatsApp webhook event appended via Server-Sent Events stream!
+              </span>
+            </div>
+            <span className="text-[10px] font-mono text-emerald-500/60 uppercase">
+              {lastEventTime?.toLocaleTimeString()}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Webhook Events List */}
       <div className="space-y-3">
-        {loading && events.length === 0 ? (
+        {connectionState === 'connecting' && events.length === 0 ? (
           <div className="p-12 text-center bg-white/5 rounded-3xl border border-white/5 space-y-4">
             <RefreshCcw size={32} className="mx-auto text-aba-gold animate-spin" />
             <p className="text-xs font-bold text-white/50 uppercase tracking-widest">

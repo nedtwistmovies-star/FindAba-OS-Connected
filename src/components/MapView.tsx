@@ -213,19 +213,22 @@ const MapView: React.FC<MapViewProps> = ({ businesses, onBusinessClick, userLoca
   }, [businesses, L, onBusinessClick, userLocation, route]);
 
   const handleLocate = async () => {
-    if (isLocating) return;
+    if (isLocating || !mapRef.current) return;
     setIsLocating(true);
     try {
       const pos = await getCurrentPosition();
-      mapRef.current.flyTo([pos.latitude, pos.longitude], 16, { duration: 1.5 });
+      if (mapRef.current) {
+        mapRef.current.flyTo([pos.latitude, pos.longitude], 16, { duration: 1.5 });
+      }
     } catch (e) {
-      alert("Location protocol denied.");
+      console.warn("Location protocol denied or failed:", e);
     } finally {
       setIsLocating(false);
     }
   };
 
   const handleResetView = () => {
+    if (!mapRef.current) return;
     mapRef.current.flyTo([5.1065, 7.3633], 14);
   };
 

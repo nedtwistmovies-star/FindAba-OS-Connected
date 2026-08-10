@@ -39,6 +39,8 @@ export const ROUTE_MAP: Record<string, any> = {
   'audio-heritage': lazy(() => import('../features/creative/AudioHeritage')),
   'about-aba': lazy(() => import('../features/info/AboutAba')),
   editorial: lazy(() => import('../features/discovery/AdvertorialFeed')),
+  'aba-stories': lazy(() => import('../features/discovery/AdvertorialFeed')),
+  reels: lazy(() => import('../features/discovery/AdvertorialFeed')),
   'hardware-audit': lazy(() => import('../features/tech/RegistrySetup')),
   'registry-setup': lazy(() => import('../features/tech/RegistrySetup'))
 };

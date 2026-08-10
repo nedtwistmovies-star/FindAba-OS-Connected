@@ -87,8 +87,8 @@ export const ContactGateway: React.FC<ContactGatewayProps> = ({ isOpen, onClose,
             addToast(`Meta API Credentials not yet configured in env. Launching direct wa.me chat link.`, 'info');
           } else if (data.whatsapp?.error) {
             const hint = data.whatsapp.details?.diagnosticHint || '';
-            const msg = `Meta API Integration Alert: ${data.whatsapp.error}. ${hint}`;
-            addToast(msg, 'error');
+            const msg = `WhatsApp Integration Alert: ${data.whatsapp.error}. ${hint}`;
+            addToast(msg, 'info');
           }
 
           // 3. Always provide the direct wa.me fallback for the best CX

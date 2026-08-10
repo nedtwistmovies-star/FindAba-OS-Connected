@@ -1,0 +1,43 @@
+{
+  "name": "FindAba City OS",
+  "short_name": "FindAba OS",
+  "description": "The industrial-grade city operating system for Enyimba City.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#002113",
+  "theme_color": "#002113",
+  "categories": ["business", "utilities", "productivity", "navigation"],
+  "icons": [
+    {
+      "src": "/assets/images/findaba_logo_official_1780607887279.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/images/findaba_logo_official_1780607887279.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/assets/images/findaba_logo_official_1780607887279.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Marketplace",
+      "url": "/?shortcut=marketplace",
+      "description": "Browse local businesses and industrial listings"
+    },
+    {
+      "name": "AI Guide",
+      "url": "/?shortcut=ai-guide",
+      "description": "Ask the AI assistant for city insights"
+    }
+  ]
+}

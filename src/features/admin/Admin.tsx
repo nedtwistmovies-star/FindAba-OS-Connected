@@ -76,6 +76,7 @@ import MetadataEditor from "./components/MetadataEditor";
 import TasksManager from "./components/TasksManager";
 import WhatsAppWebhookDashboard from "./components/WhatsAppWebhookDashboard";
 import GitSyncSupabaseCommit from "./components/GitSyncSupabaseCommit";
+import { GitIntegrationDiagnostics } from "./components/GitIntegrationDiagnostics";
 
 const Admin: React.FC<any> = ({ setView, userRole, userEmail, profile }) => {
   const { addToast } = useToast();
@@ -423,7 +424,14 @@ const Admin: React.FC<any> = ({ setView, userRole, userEmail, profile }) => {
 
           {activeTab === 'tasks' && <TasksManager />}
 
-          {activeTab === 'git' && <GitSyncSupabaseCommit />}
+          {activeTab === 'git' && (
+            <div className="space-y-12">
+              <SectionHeader title="GitHub Integration Diagnostics" subtitle="Connection integrity and webhook monitoring" />
+              <GitIntegrationDiagnostics />
+              <SectionHeader title="Repository Synchronization" subtitle="Commit registry data and system files to GitHub" />
+              <GitSyncSupabaseCommit />
+            </div>
+          )}
 
           {activeTab === 'whatsapp' && (
             <WhatsAppWebhookDashboard />

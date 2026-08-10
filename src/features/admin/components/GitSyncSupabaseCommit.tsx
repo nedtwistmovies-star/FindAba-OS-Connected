@@ -64,10 +64,13 @@ export const GitSyncSupabaseCommit: React.FC = () => {
     setDiagnostics(null);
     try {
       const savedPat = token.trim() || localStorage.getItem('findaba_github_pat')?.trim();
+      const currentRepo = repo.trim();
       const headers: Record<string, string> = {};
       if (savedPat) headers['X-GitHub-Token'] = savedPat;
 
-      const res = await fetch('/api/git/diagnostic', { headers });
+      // Pass repo in query to test unsaved config
+      const url = `/api/git/diagnostic?repo=${encodeURIComponent(currentRepo)}`;
+      const res = await fetch(url, { headers });
       const text = await res.text();
       let data: any = {};
       try {
@@ -79,7 +82,7 @@ export const GitSyncSupabaseCommit: React.FC = () => {
       if (data.success) {
         addToast(data.message || "System diagnostics completed successfully", "success");
       } else {
-        addToast(data.message || "System diagnostics identified potential issues", "info");
+        addToast(data.message || "System diagnostics identified configuration gaps", "info");
       }
     } catch (err: any) {
       addToast(`Diagnostic error: ${err.message}`, "error");
@@ -709,28 +712,28 @@ export const GitSyncSupabaseCommit: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/5">
                   <span className="text-[10px] uppercase font-bold text-white/40">Environment Variable</span>
-                  <span className={`text-[10px] font-mono font-bold ${diagnostics.envRepo ? 'text-aba-green' : 'text-red-500'}`}>
-                    {diagnostics.envRepo ? 'DEFINED' : 'MISSING'}
+                  <span className={`text-[10px] font-mono font-bold ${diagnostics.checks?.envRepo === 'PRESENT' ? 'text-aba-green' : 'text-red-500'}`}>
+                    {diagnostics.checks?.envRepo || (diagnostics.envRepo ? 'PRESENT' : 'MISSING')}
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/5">
                   <span className="text-[10px] uppercase font-bold text-white/40">GitHub Token</span>
-                  <span className={`text-[10px] font-mono font-bold ${diagnostics.hasToken ? 'text-aba-green' : 'text-red-500'}`}>
-                    {diagnostics.hasToken ? 'ACTIVE' : 'MISSING'}
+                  <span className={`text-[10px] font-mono font-bold ${diagnostics.checks?.hasToken === 'PRESENT' ? 'text-aba-green' : 'text-red-500'}`}>
+                    {diagnostics.checks?.hasToken || (diagnostics.hasToken ? 'PRESENT' : 'MISSING')}
                   </span>
                 </div>
               </div>
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/5">
                   <span className="text-[10px] uppercase font-bold text-white/40">Repository Format</span>
-                  <span className={`text-[10px] font-mono font-bold ${diagnostics.repoValid ? 'text-aba-green' : 'text-red-500'}`}>
-                    {diagnostics.repoValid ? 'VALID' : 'INVALID'}
+                  <span className={`text-[10px] font-mono font-bold ${diagnostics.checks?.repoFormat === 'VALID' ? 'text-aba-green' : 'text-red-500'}`}>
+                    {diagnostics.checks?.repoFormat || (diagnostics.repoValid ? 'VALID' : 'INVALID')}
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/5">
                   <span className="text-[10px] uppercase font-bold text-white/40">GitHub API Status</span>
-                  <span className={`text-[10px] font-mono font-bold ${diagnostics.apiReachable ? 'text-aba-green' : 'text-red-500'}`}>
-                    {diagnostics.apiReachable ? 'REACHABLE' : 'UNREACHABLE'}
+                  <span className={`text-[10px] font-mono font-bold ${diagnostics.checks?.apiStatus === 'REACHABLE' ? 'text-aba-green' : 'text-red-500'}`}>
+                    {diagnostics.checks?.apiStatus || (diagnostics.apiReachable ? 'REACHABLE' : 'UNREACHABLE')}
                   </span>
                 </div>
               </div>
@@ -739,6 +742,31 @@ export const GitSyncSupabaseCommit: React.FC = () => {
               <p className="text-[10px] font-mono text-white/60 p-3 bg-black/40 rounded-xl border border-white/5">
                 {diagnostics.message}
               </p>
+            )}
+
+            {!diagnostics.success && (
+              <div className="p-4 bg-aba-gold/5 border border-aba-gold/20 rounded-xl space-y-3">
+                <div className="flex items-center gap-2 text-aba-gold">
+                  <ShieldCheck size={16} />
+                  <span className="text-[10px] font-black uppercase tracking-widest">How to Resolve</span>
+                </div>
+                <p className="text-[10px] text-white/60 leading-relaxed">
+                  To persist these settings permanently in your live environment, go to the <strong>Settings</strong> menu in AI Studio, click on <strong>Secrets</strong>, and add:
+                </p>
+                <div className="space-y-2">
+                   <div className="flex items-center justify-between p-2 bg-black/20 rounded-lg text-[9px]">
+                     <code className="text-aba-gold">GITHUB_REPO</code>
+                     <span className="text-white/40">Owner/Repository format</span>
+                   </div>
+                   <div className="flex items-center justify-between p-2 bg-black/20 rounded-lg text-[9px]">
+                     <code className="text-aba-gold">GITHUB_TOKEN</code>
+                     <span className="text-white/40">Personal Access Token (classic or fine-grained)</span>
+                   </div>
+                </div>
+                <p className="text-[9px] text-white/40 italic">
+                  Note: You can also save these temporarily below using the "Save Repository Config" button.
+                </p>
+              </div>
             )}
           </div>
         )}

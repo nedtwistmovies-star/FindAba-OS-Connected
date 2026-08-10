@@ -12,7 +12,7 @@ import compression from "compression";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import { env, missingRequiredEnv } from "./server/services/env";
+import { env } from "./server/services/env";
 import { adminRouter } from "./server/routes/admin";
 import { oracleRouter } from "./server/routes/oracle";
 import { authRouter } from "./server/routes/auth";
@@ -21,23 +21,8 @@ import { whatsappRouter } from "./server/routes/whatsapp";
 import { paymentRouter } from "./server/routes/payment";
 import { emailRouter } from "./server/routes/email";
 
-/**
- * Resolve application directory in a way that works for both ESM (import.meta.url)
- * and CommonJS (where __dirname exists). If neither is available, fall back to process.cwd().
- *
- * We try the import.meta.url approach first (works in ESM), and if it throws we
- * fallback to __dirname or process.cwd(). This prevents fileURLToPath(undefined)
- * errors when the server is bundled/run as CommonJS.
- */
-let APP_DIR: string;
-try {
-  // Try ESM style first. In ESM runtimes this will succeed.
-  // @ts-ignore - import.meta may not be typed in some TS configurations
-  APP_DIR = path.dirname(fileURLToPath(import.meta.url));
-} catch (e) {
-  // If that fails (CommonJS / bundled CJS), use __dirname if present, otherwise cwd.
-  APP_DIR = typeof __dirname !== "undefined" ? __dirname : process.cwd();
-}
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 console.log("[FindAba] Initializing City OS Backbone...");
 console.log("[FindAba] Config Audit:", {
@@ -50,6 +35,31 @@ console.log("[FindAba] Config Audit:", {
 
 export const app = express();
 app.set("trust proxy", 1);
+
+/**
+ * Validates required environment variables and logs actionable warnings.
+ */
+function validateEnvironment() {
+  const required = [
+    { key: "GITHUB_REPO", description: "GitHub repository (owner/repo)" },
+    { key: "GITHUB_TOKEN", description: "GitHub Personal Access Token" },
+    { key: "SUPABASE_SERVICE_ROLE_KEY", description: "Supabase Service Role Key" },
+    { key: "WHATSAPP_ACCESS_TOKEN", description: "WhatsApp API Token" },
+  ];
+  const missing = required.filter(item => !process.env[item.key]);
+  if (missing.length > 0) {
+    console.warn("\n=== ⚠️  CONFIGURATION ALERT ===");
+    console.warn("Missing environment variables in AI Studio Secrets:");
+    missing.forEach(item => console.warn(`- ${item.key}: ${item.description}`));
+    console.warn("ACTION: Go to AI Studio -> Settings -> Secrets to add these.");
+    console.warn("================================\n");
+  } else {
+    console.log("[FindAba] ✅ Environment verified.");
+  }
+}
+
+// Run validation
+validateEnvironment();
 
 // --- Core Middleware ---
 app.use(
@@ -85,28 +95,20 @@ app.use((req, res, next) => {
   next();
 });
 
-// --- Fail fast, but with JSON, not a blank body ---
-// If required config (e.g. Supabase) is missing, every /api/* call would
-// otherwise 500 with an empty body and the frontend would see
-// "Unexpected end of JSON input". This turns that into a diagnosable error.
-if (missingRequiredEnv.length > 0) {
-  console.error(`[FindAba] Server misconfigured -- missing: ${missingRequiredEnv.join(", ")}`);
-  app.use("/api", (req, res) => {
-    res.status(503).json({
-      success: false,
-      error: "Server misconfigured",
-      details: `Missing required environment variable(s): ${missingRequiredEnv.join(", ")}. Set these in your deployment's environment settings and redeploy.`,
-    });
-  });
-}
-
 // --- API Routes ---
 app.get("/api/health", (req, res) => {
+  const required = ["GITHUB_REPO", "GITHUB_TOKEN", "SUPABASE_SERVICE_ROLE_KEY", "WHATSAPP_ACCESS_TOKEN"];
+  const envStatus = required.reduce((acc, key) => {
+    acc[key] = !!process.env[key] ? "PRESENT" : "MISSING";
+    return acc;
+  }, {} as Record<string, string>);
+
   res.json({
     status: "ok",
     node: "FindAba-City-OS-V1",
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    environment: envStatus
   });
 });
 
@@ -130,7 +132,7 @@ async function setupVite() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(APP_DIR, "dist");
+    const distPath = path.join(__dirname, "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));

@@ -28,7 +28,9 @@ export const sendEmail = async (options: EmailOptions): Promise<{ success: boole
       }),
     });
 
-    const data = await response.json();
+    const text = await response.text();
+    let data: any = {};
+    try { data = text && text.trim() ? JSON.parse(text) : {}; } catch {}
 
     if (!response.ok) {
       return { success: false, error: data.error || 'Failed to send email' };

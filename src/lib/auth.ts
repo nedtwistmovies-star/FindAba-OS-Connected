@@ -11,7 +11,8 @@ export async function sendOTP(phone: string) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone }),
     });
-    return await res.json();
+    const text = await res.text();
+    return text && text.trim() ? JSON.parse(text) : {};
   } catch (err: any) {
     console.error("[Auth] sendOTP network error:", err);
     return { success: false, error: err.message || "Network error sending OTP" };
@@ -29,7 +30,8 @@ export async function verifyOTP(phone: string, code: string) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone, code }),
     });
-    return await res.json();
+    const text = await res.text();
+    return text && text.trim() ? JSON.parse(text) : {};
   } catch (err: any) {
     console.error("[Auth] verifyOTP network error:", err);
     return { success: false, error: err.message || "Network error verifying OTP" };

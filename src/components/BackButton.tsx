@@ -55,7 +55,9 @@ export const BackButton: React.FC<BackButtonProps> = ({
   variant = 'default',
   showPreviousViewName = true,
 }) => {
-  const { goBack, canGoBack, previousView } = useOracle();
+  const { goBack, canGoBack, previousView, view } = useOracle();
+
+  if (view === 'home') return null;
 
   const handleBack = (e: React.MouseEvent) => {
     e.stopPropagation();

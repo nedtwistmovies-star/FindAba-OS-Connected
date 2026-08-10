@@ -32,7 +32,9 @@ async function fetchWithRetry(
   backoff = 1000
 ): Promise<{ ok: boolean; status: number; data: any }> {
   try {
-    log('WHATSAPP_REQUEST_SENT', { url, method: options.method, body: JSON.parse(options.body) });
+    let parsedBody = {};
+    try { parsedBody = options.body ? JSON.parse(options.body) : {}; } catch {}
+    log('WHATSAPP_REQUEST_SENT', { url, method: options.method, body: parsedBody });
     const response = await fetch(url, options);
     
     // Read the body exactly once

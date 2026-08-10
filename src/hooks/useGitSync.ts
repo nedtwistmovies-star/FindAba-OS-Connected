@@ -35,7 +35,7 @@ export const useGitSync = () => {
     return headers;
   };
 
-  const sync = useCallback(async (manualRepo?: string, manualBranch?: string) => {
+  const sync = useCallback(async (manualRepo?: string, manualBranch?: string, retriesLeft: number = 2) => {
     setLoading(true);
     try {
       const authHeaders = await getAuthHeaders();
@@ -61,39 +61,65 @@ export const useGitSync = () => {
       });
       const text = await response.text();
       
-      let result;
-      try {
-        result = JSON.parse(text);
-      } catch (e) {
-        console.error("[GitSync] Failed to parse JSON response:", text);
-        setStatus({ connected: false, error: `Industrial Signal Invalid: ${response.status}` });
-        return;
+      const isHtml = text.trim().startsWith('<');
+      let result: any = {};
+      if (!isHtml) {
+        try {
+          result = text && text.trim() ? JSON.parse(text) : {};
+        } catch (e) {
+          console.warn("[GitSync] Handshake response not valid JSON");
+        }
       }
-      
-      if (response.ok) {
-        setStatus({
-          connected: true,
-          repo: result.repo,
-          branch: targetBranch || 'main',
-          lastUpdated: result.lastUpdated,
-          data: result.data || [],
-          error: undefined
-        });
-        console.log(`[GitSync] Handshake successful: ${targetRepo || 'default'}`);
-      } else {
-        const errorMsg = result.details || result.error || `Sync Handshake Failed (${response.status})`;
+
+      if (isHtml || !response.ok) {
+        if (isHtml) {
+          if (retriesLeft > 0) {
+            console.log(`[GitSync] Server starting up or returning HTML. Retrying handshake in 3s... (${retriesLeft} retries left)`);
+            setTimeout(() => sync(manualRepo, manualBranch, retriesLeft - 1), 3000);
+            return;
+          }
+          setStatus({ connected: false, error: "Server initializing... Please retry in a moment." });
+          return;
+        }
+
+        let errorMsg = result.details || result.error || `Sync Handshake Failed (${response.status})`;
+        
+        if (response.status === 401 || response.status === 403) {
+          errorMsg = "Authentication Failed: Please ensure your GITHUB_TOKEN is valid and has 'repo' scope permissions.";
+        } else if (response.status === 404) {
+          errorMsg = `Repository Not Found: Ensure '${targetRepo || "configured repo"}' exists and is accessible.`;
+        } else if (typeof errorMsg === 'string' && (errorMsg.includes('Unexpected end of JSON input') || errorMsg.includes('JSON'))) {
+          errorMsg = `GitHub API payload unreachable or invalid. Verify repository name '${targetRepo || "configured"}' and Personal Access Token.`;
+        }
+        
         console.warn(`[GitSync] Handshake failed: ${errorMsg}`);
         setStatus({ 
           connected: false, 
           error: errorMsg,
           lastUpdated: undefined 
         });
+        return;
       }
+      
+      setStatus({
+        connected: true,
+        repo: result.repo,
+        branch: targetBranch || 'main',
+        lastUpdated: result.lastUpdated,
+        data: result.data || [],
+        error: undefined
+      });
+      console.log(`[GitSync] Handshake successful: ${targetRepo || 'default'}`);
     } catch (err: any) {
-      console.error("[GitSync] Network fault during handshake:", err.message);
+      if (retriesLeft > 0 && err.message === 'Failed to fetch') {
+        console.log(`[GitSync] Network fault during handshake. Retrying in 3s... (${retriesLeft} retries left)`);
+        setTimeout(() => sync(manualRepo, manualBranch, retriesLeft - 1), 3000);
+        return;
+      }
+      console.warn("[GitSync] Network fault during handshake:", err.message);
       setStatus({ 
         connected: false, 
-        error: `Connectivity Fault: ${err.message}. Ensure the Registry Backend is online.` 
+        error: `Connectivity Fault: ${err.message === 'Failed to fetch' ? 'Server starting or unreachable' : err.message}. Ensure the Registry Backend is online.` 
       });
     } finally {
       setLoading(false);
@@ -125,18 +151,26 @@ export const useGitSync = () => {
       });
       
       const text = await response.text();
-      let result;
-      try {
-        result = JSON.parse(text);
-      } catch (e) {
-        console.error("[GitSync] Commit Failed Parse JSON:", text);
-        return { success: false, error: `Server System Error: ${response.status}` };
+      const isHtml = text.trim().startsWith('<');
+      let result: any = {};
+      if (!isHtml) {
+        try {
+          result = text && text.trim() ? JSON.parse(text) : {};
+        } catch (e) {
+          console.warn("[GitSync] Commit Failed Parse JSON");
+        }
+      } else {
+        return { success: false, error: `Server System Error or Warmup (${response.status})` };
       }
 
       if (response.ok) {
         return { success: true, commit: result.commit };
       } else {
-        return { success: false, error: result.details || result.error || 'Commit Failed' };
+        let errorMsg = result.details || result.error || 'Commit Failed';
+        if (typeof errorMsg === 'string' && errorMsg.includes('Unexpected end of JSON input')) {
+          errorMsg = 'GitHub API returned invalid response. Verify repository credentials and permissions.';
+        }
+        return { success: false, error: errorMsg };
       }
     } catch (err: any) {
       console.error('Commit Error:', err);
@@ -185,18 +219,26 @@ export const useGitSync = () => {
       clearTimeout(timeoutId);
       
       const text = await response.text();
-      let result;
-      try {
-        result = JSON.parse(text);
-      } catch (e) {
-        console.error("[GitSync] Full Sync Failed Parse JSON:", text);
-        return { success: false, error: `Server Error: ${response.status}` };
+      const isHtml = text.trim().startsWith('<');
+      let result: any = {};
+      if (!isHtml) {
+        try {
+          result = text && text.trim() ? JSON.parse(text) : {};
+        } catch (e) {
+          console.warn("[GitSync] Full Sync Failed Parse JSON");
+        }
+      } else {
+        return { success: false, error: `Server Error or Warmup (${response.status})` };
       }
 
       if (response.ok) {
         return { success: true, commit: result.commit, warning: result.warning };
       } else {
-        return { success: false, error: result.details || result.error || 'Full Sync Failed' };
+        let errorMsg = result.details || result.error || 'Full Sync Failed';
+        if (typeof errorMsg === 'string' && errorMsg.includes('Unexpected end of JSON input')) {
+          errorMsg = 'GitHub API returned invalid response. Verify repository permissions.';
+        }
+        return { success: false, error: errorMsg };
       }
     } catch (err: any) {
       clearTimeout(timeoutId);

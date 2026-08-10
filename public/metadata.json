@@ -1,0 +1,27 @@
+{
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "name": "FindAba",
+  "short_name": "FindAba",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nedtwistmovies-star/FindAba-OS.git"
+  },
+  "description": "The unified digital ecosystem for Aba, connecting businesses, merchants, and the community. Explore Aba, find opportunities, and connect with global trade.",
+  "theme_color": "#020617",
+  "background_color": "#020617",
+  "contact_email": "inquiries@findaba.com",
+  "account_number": "0000000000",
+  "social_media_links": {
+    "twitter": "https://twitter.com/findaba",
+    "facebook": "https://facebook.com/findaba",
+    "linkedin": "https://linkedin.com/company/findaba"
+  },
+  "icon": "/icon.png",
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

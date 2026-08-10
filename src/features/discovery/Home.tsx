@@ -736,10 +736,13 @@ const Home: React.FC<HomeProps> = ({ setView, businesses = [], heroImages = [], 
             />
             <div className="absolute inset-0 bg-gradient-to-t from-aba-deep via-transparent to-transparent" />
             
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 space-y-6">
-              <div className="w-16 h-16 bg-aba-gold rounded-full flex items-center justify-center shadow-lg">
+            <div 
+              className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 space-y-6 cursor-pointer"
+              onClick={() => setView('editorial')}
+            >
+              <button className="w-16 h-16 bg-aba-gold rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-transform group-hover:bg-white">
                 <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[14px] border-l-aba-deep border-b-[8px] border-b-transparent ml-1" />
-              </div>
+              </button>
               <div className="space-y-2">
                 <h3 className="text-2xl md:text-5xl font-bold text-white uppercase tracking-tight">Aba in <span className="text-aba-gold">Action.</span></h3>
                 <p className="text-[10px] font-bold text-aba-gold uppercase tracking-widest">Showcasing local businesses</p>

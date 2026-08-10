@@ -77,6 +77,7 @@ import {
   WeatherData,
 } from "../services/signalService";
 import SystemStatusIndicator from "./SystemStatusIndicator";
+import { HealthCheck } from "./HealthCheck";
 
 const SystemClock: React.FC = () => {
   const [time, setTime] = useState(new Date());
@@ -566,7 +567,7 @@ const Layout: React.FC<LayoutProps> = ({
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* Universal Top Header Back Button */}
             <div className="flex items-center">
-              <BackButton variant="header" />
+              {currentView !== 'home' && <BackButton variant="header" />}
             </div>
 
             <div
@@ -898,25 +899,37 @@ const Layout: React.FC<LayoutProps> = ({
                   </h4>
                   <div className="space-y-3">
                     <button
-                      onClick={() => setView("explore")}
+                      onClick={() => {
+                        setSearchQuery("VERIFIED");
+                        setView("explore");
+                      }}
                       className="block text-xs font-medium text-white/60 hover:text-aba-gold transition-standard uppercase tracking-widest"
                     >
                       Verified Hubs
                     </button>
                     <button
-                      onClick={() => setView("explore")}
+                      onClick={() => {
+                        setSearchQuery("Industrial");
+                        setView("explore");
+                      }}
                       className="block text-xs font-medium text-white/60 hover:text-aba-gold transition-standard uppercase tracking-widest"
                     >
                       Industrial Partners
                     </button>
                     <button
-                      onClick={() => setView("explore")}
+                      onClick={() => {
+                        setSearchQuery("Export");
+                        setView("explore");
+                      }}
                       className="block text-xs font-medium text-white/60 hover:text-aba-gold transition-standard uppercase tracking-widest"
                     >
                       Export Readiness
                     </button>
                     <button
-                      onClick={() => setView("explore")}
+                      onClick={() => {
+                        setSearchQuery("");
+                        setView("faces");
+                      }}
                       className="block text-xs font-medium text-white/60 hover:text-aba-gold transition-standard uppercase tracking-widest"
                     >
                       Trade Analytics
@@ -1253,6 +1266,7 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
       </div>
       <SystemStatusIndicator />
+      <HealthCheck />
     </div>
   );
 };

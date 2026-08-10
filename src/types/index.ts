@@ -3,7 +3,7 @@ export type ViewState =
   | 'discover' | 'home' | 'oracle' | 'cargo' | 'profile' | 'detail' 
   | 'explore' | 'messages' | 'merchant-portal' 
   | 'register' | 'admin' | 'tech-setup' | 'buyer-portal' | 'ad-manager' 
-  | 'pricing' | 'ad-checkout' | 'about'
+  | 'pricing' | 'ad-checkout' | 'about' | 'aba-stories' | 'reels'
   /* 🔹 COMPATIBILITY KEYS (DEPRECATED - REMOVE FROM CALLERS) */
   | 'about-who' | 'about-vision' | 'about-mission' | 'about-aba'
   | 'faces' | 'fidelity' | 'thrift-dashboard' | 'wallet' | 'purple-fleet' | 'contact'

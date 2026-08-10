@@ -19,7 +19,9 @@ export const sendOtp = async (phone: string) => {
       body: JSON.stringify({ phone, code }),
     });
 
-    const data = await response.json();
+    const text = await response.text();
+    let data: any = {};
+    try { data = text && text.trim() ? JSON.parse(text) : {}; } catch {}
 
     if (!data.success) {
       console.error("[WhatsApp OTP] Error:", data.error);

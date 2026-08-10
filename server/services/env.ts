@@ -2,9 +2,7 @@
  * server/services/env.ts
  *
  * Single source of truth for environment variables.
- * Required vars are collected (not thrown) at startup so the server can
- * still boot and report a clear JSON error, instead of crashing the whole
- * module before Express registers any routes.
+ * Required vars throw at startup (fail fast, no silent fallback secrets).
  */
 
 function getEnv(name: string, fallbackName?: string): string | undefined {
@@ -12,20 +10,13 @@ function getEnv(name: string, fallbackName?: string): string | undefined {
   return val && val.trim() ? val.trim() : undefined;
 }
 
-// Missing required vars are collected here instead of thrown immediately.
-// Throwing during import kills the whole serverless module before Express
-// boots, so every /api/* route -- not just the one that needed the var --
-// comes back with an empty response body. The client's JSON.parse('') then
-// fails with "Unexpected end of JSON input", masking the real cause.
-export const missingRequiredEnv: string[] = [];
-
 function required(name: string, fallbackName?: string): string {
   const value = getEnv(name, fallbackName);
   if (!value) {
-    const label = fallbackName ? `${name} (or ${fallbackName})` : name;
-    missingRequiredEnv.push(label);
-    console.error(`[ENV] Missing required environment variable: ${label}`);
-    return "";
+    throw new Error(
+      `[ENV] Missing required environment variable: ${name}${fallbackName ? ` (or ${fallbackName})` : ''}. ` +
+        `Set it before starting the server — no fallback secret exists in code.`
+    );
   }
   return value;
 }
@@ -39,14 +30,12 @@ export const env = {
   IS_VERCEL: !!process.env.VERCEL,
   PORT: 3000,
 
-  // Required -- nothing works without the DB. Missing values are collected
-  // above in `missingRequiredEnv` rather than thrown, so the server can
-  // still boot and report the problem as JSON via the middleware in server.ts.
+  // Required — nothing works without the DB
   SUPABASE_URL: required("SUPABASE_URL", "VITE_SUPABASE_URL"),
   SUPABASE_SERVICE_ROLE_KEY: required("SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_KEY"),
   SUPABASE_ANON_KEY: optional("SUPABASE_ANON_KEY", "VITE_SUPABASE_ANON_KEY"),
 
-  // AI providers -- optional at startup, validated lazily by services/ai.ts
+  // AI providers — optional at startup, validated lazily by services/ai.ts
   OPENROUTER_API_KEY: optional("OPENROUTER_API_KEY", "VITE_OPENROUTER_API_KEY"),
   GEMINI_API_KEY: optional("GEMINI_API_KEY", "VITE_GEMINI_API_KEY") || optional("API_KEY"),
   DEFAULT_AI_PROVIDER: process.env.DEFAULT_AI_PROVIDER || "openrouter",
@@ -72,13 +61,13 @@ export const env = {
   // Automation
   MAKE_WEBHOOK_URL: optional("MAKE_WEBHOOK_URL"),
 
-  // Admin bootstrap -- master admin email
+  // Admin bootstrap — master admin email
   MASTER_ADMIN_EMAIL: optional("MASTER_ADMIN_EMAIL") || "pastornelsonezi@gmail.com",
 
   APP_URL: optional("APP_URL"),
 };
 
-/** Public-safe subset -- never includes secret keys, only "is this configured" flags. */
+/** Public-safe subset — never includes secret keys, only "is this configured" flags. */
 export function publicConfig(isAdmin: boolean) {
   const base = {
     supabaseUrl: env.SUPABASE_URL,
