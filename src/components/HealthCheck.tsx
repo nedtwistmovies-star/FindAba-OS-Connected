@@ -12,10 +12,12 @@ export const HealthCheck: React.FC = () => {
     const check = async () => {
       try {
         const res = await fetch('/api/health');
-        const data = await res.json();
-        setStatus(data);
+        if (res.ok) {
+          const data = await res.json();
+          setStatus(data);
+        }
       } catch (err) {
-        console.error('Health check failed', err);
+        console.warn('[HealthCheck] Health check fetch soft fallback:', err);
       } finally {
         setLoading(false);
       }
